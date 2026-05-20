@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Google Search Chatbot</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .chat-container { width: 650px; background: white; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.15); overflow: hidden; }
+        .chat-header { background: #075e54; color: white; padding: 20px; text-align: center; }
+        .chat-header h2 { font-size: 20px; }
+        .chat-header p { font-size: 12px; opacity: 0.8; margin-top: 4px; }
+        .chat-box { height: 450px; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+        .message { max-width: 85%; padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.5; }
+        .bot-message { background: #f1f0f0; align-self: flex-start; border-radius: 0 12px 12px 12px; }
+        .user-message { background: #075e54; color: white; align-self: flex-end; border-radius: 12px 0 12px 12px; }
+        .result-item { margin: 10px 0; padding: 8px; background: white; border-left: 3px solid #075e54; border-radius: 4px; }
+        .result-title a { color: #1a0dab; font-weight: bold; text-decoration: none; font-size: 14px; }
+        .result-title a:hover { text-decoration: underline; }
+        .result-url { color: #006621; font-size: 11px; margin: 2px 0; word-break: break-all; }
+        .result-desc { color: #545454; font-size: 12px; margin-top: 3px; }
+        .result-number { color: #075e54; font-weight: bold; font-size: 13px; }
+        .chat-input { display: flex; padding: 15px; border-top: 1px solid #eee; gap: 10px; }
+        .chat-input input { flex: 1; padding: 12px 16px; border: 1px solid #ddd; border-radius: 25px; outline: none; font-size: 14px; }
+        .chat-input input:focus { border-color: #075e54; }
+        .chat-input button { background: #075e54; color: white; border: none; padding: 12px 24px; border-radius: 25px; cursor: pointer; font-size: 14px; }
+        .chat-input button:hover { background: #064e47; }
+        .loading { color: #888; font-style: italic; }
+    </style>
+</head>
+<body>
+<div class="chat-container">
+    <div class="chat-header">
+        <h2>Google Search Chatbot</h2>
+        <p>Type any keyword to get top 5 search results</p>
+    </div>
+    <div class="chat-box" id="chatBox">
+        <div class="message bot-message">
+            Hello! I am your Search Chatbot powered by Django. Type any keyword and I will show you the top 5 search results instantly!
+        </div>
+    </div>
+    <div class="chat-input">
+        <input type="text" id="keywordInput" placeholder="Type a keyword and press Enter..." onkeypress="handleKeyPress(event)"/>
+        <button onclick="sendMessage()">Search</button>
+    </div>
+</div>
+
+<script>
+
+    // STEP 1 — When user presses Enter key, run sendMessage()
+    function handleKeyPress(event) {
+        if (event.key === 'Enter') sendMessage();
+    }
+
+    function sendMessage() {
+
+        // STEP 2 — Get keyword that user typed in input box
+        const input = document.getElementById('keywordInput');
+        const keyword = input.value.trim();
+
+        // STEP 3 — If keyword is empty, do nothing
+        if (!keyword) return;
+
+        const chatBox = document.getElementById('chatBox');
+
+        // STEP 4 — Show user message in chat (right side green bubble)
+        chatBox.innerHTML += `<div class="message user-message">${keyword}</div>`;
+
+        // STEP 5 — Clear input box
+        input.value = '';
+
+        // STEP 6 — Show loading message while waiting for results
+        chatBox.innerHTML += `<div class="message bot-message loading" id="loading">Searching for "<b>${keyword}</b>"... Please wait.</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+        // STEP 7 — FRONTEND CONNECTS TO BACKEND HERE
+        // fetch() sends POST request to Django /search/ endpoint
+        // with keyword as JSON in the body
+        fetch('/search/', {
+            method: 'POST',                                    // POST request
+            headers: { 'Content-Type': 'application/json' },  // sending JSON
+            body: JSON.stringify({ keyword: keyword })         // keyword as JSON
+        })
+
+        // STEP 8 — Convert response to JSON
+        .then(res => res.json())
+
+        // STEP 9 — Receive results from Django backend
+        .then(data => {
+
+            // STEP 10 — Remove loading message
+            document.getElementById('loading').remove();
+
+            // STEP 11 — If results found, show them in chat
+            if (data.results && data.results.length > 0) {
+                let html = `<div class="message bot-message">Top 5 results for "<b>${data.keyword}</b>":<br>`;
+
+                // STEP 12 — Loop through each result and display
+                data.results.forEach((item, index) => {
+                    html += `
+                        <div class="result-item">
+                            <div class="result-number">${index + 1}.</div>
+                            <div class="result-title"><a href="${item.url}" target="_blank">${item.title}</a></div>
+                            <div class="result-url">${item.url}</div>
+                            <div class="result-desc">${item.description}</div>
+                        </div>`;
+                });
+                html += '</div>';
+                chatBox.innerHTML += html;
+
+            } else {
+                // STEP 13 — If no results found
+                chatBox.innerHTML += `<div class="message bot-message">No results found for "${data.keyword}".</div>`;
+            }
+            chatBox.scrollTop = chatBox.scrollHeight;
+        })
+
+        // STEP 14 — If any error occurs show error message
+        .catch(() => {
+            document.getElementById('loading').remove();
+            chatBox.innerHTML += `<div class="message bot-message">Something went wrong. Please try again.</div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+        });
+    }
+</script>
+</body>
+</html>
